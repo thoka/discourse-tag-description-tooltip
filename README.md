@@ -8,7 +8,8 @@ Discourse removed the `title` attribute from tag links in July 2026, because a `
 
 1. In the admin panel, open Appearance, then Themes and components, then Components.
 2. Click Install, then From a git repository, and enter `https://github.com/thoka/discourse-tag-description-tooltip`.
-3. Add the component to your active theme.
+3. On the page of the component, click "Add all themes" (German: "Alle Themes hinzufügen") and save. A user can pick any theme in their preferences, so the component must be in each theme; a theme without it shows no tooltip.
+4. After an update of the component, click "Check for updates" on the same page.
 
 It needs Discourse 2026.10 or later.
 
