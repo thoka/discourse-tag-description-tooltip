@@ -11,6 +11,8 @@ Discourse removed the `title` attribute from tag links in July 2026, because a `
 3. On the page of the component, click "Add all themes" (German: "Alle Themes hinzufügen") and save. A user can pick any theme in their preferences, so the component must be in each theme; a theme without it shows no tooltip.
 4. After an update of the component, click "Check for updates" on the same page.
 
+Or, with an admin API key (global scope) in a file: `bin/install-on-forum <forum base URL> <key file> [--dry-run]`. It installs or updates the component, turns it on, adds it to each theme, and checks the result. It is safe to run again.
+
 It needs Discourse 2026.10 or later.
 
 ## Settings

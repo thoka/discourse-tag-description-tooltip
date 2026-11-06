@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Install or update this component on a forum from its git repository, turn it on,
+# and add it to each theme of the forum, through the admin API. Safe to run again.
+# Usage: bin/install-on-forum <forum base URL> <file with an admin API key> [--dry-run]
+# The key needs the global scope and acts as the user system.
+# Way back: on the component page in the admin panel, remove the themes or delete the component.
+set -euo pipefail
+. "$(dirname "$0")/_log.sh"
+
+REPO="https://github.com/thoka/discourse-tag-description-tooltip"
+base="${1:?usage: bin/install-on-forum <forum base URL> <key file> [--dry-run]}"
+base="${base%/}"
+keyfile="${2:?usage: bin/install-on-forum <forum base URL> <key file> [--dry-run]}"
+dry=0
+[ "${3:-}" = "--dry-run" ] && dry=1
+[ -r "$keyfile" ] || { log key failed "cannot read $keyfile"; exit 1; }
+
+# api <method> <path> [curl args...]: curl reads the key from stdin, so it is in no process list.
+api() {
+  local method="$1" path="$2"
+  shift 2
+  printf 'header = "Api-Key: %s"\nheader = "Api-Username: system"\n' "$(head -n1 "$keyfile")" |
+    curl -sS --fail-with-body --max-time 120 -K - -X "$method" "$base$path" "$@"
+}
+
+log themes running "read the theme list of $base"
+themes="$(api GET /admin/themes.json)"
+id="$(jq -r --arg repo "$REPO" '[.themes[] | select(.component and ((.remote_theme.remote_url // "") | sub("\\.git$"; "") == $repo))][0].id // empty' <<<"$themes")"
+parents="$(jq -c '[.themes[] | select(.component | not) | .id]' <<<"$themes")"
+log themes ok "component id: ${id:-none}; themes to add it to: $parents"
+
+if [ "$dry" = 1 ]; then
+  if [ -z "$id" ]; then
+    log plan ok "would import $REPO, turn it on, and add it to $parents"
+  else
+    log plan ok "would update component $id from git, turn it on, and add it to $parents"
+  fi
+  exit 0
+fi
+
+if [ -z "$id" ]; then
+  log import running "import $REPO (branch main)"
+  id="$(api POST /admin/themes/import.json --data-urlencode "remote=$REPO" --data-urlencode branch=main | jq -r '.theme.id')"
+  log import ok "component id $id"
+else
+  log update running "update component $id from git"
+  api PUT "/admin/themes/$id.json" --data-urlencode "theme[remote_update]=true" >/dev/null
+  log update ok "component $id is on the newest commit"
+fi
+
+log attach running "turn on component $id and add it to $parents"
+args=(--data-urlencode "theme[enabled]=true")
+for p in $(jq -r '.[]' <<<"$parents"); do
+  args+=(--data-urlencode "theme[parent_theme_ids][]=$p")
+done
+api PUT "/admin/themes/$id.json" "${args[@]}" >/dev/null
+log attach ok "component $id is on and in each theme"
+
+# Checks of the result.
+fail=0
+state="$(api GET /admin/themes.json | jq -c --argjson id "$id" '.themes[] | select(.id == $id) | {enabled, supported, parents: ([.parent_themes[]?.id] | sort), behind: .remote_theme.commits_behind, version: .remote_theme.remote_version}')"
+log check running "component state: $state"
+jq -e '.enabled == true' <<<"$state" >/dev/null || { log check failed "the component is not on"; fail=1; }
+jq -e '.supported != false' <<<"$state" >/dev/null || { log check failed "core marks the component as not supported"; fail=1; }
+jq -e --argjson want "$parents" '.parents == ($want | sort)' <<<"$state" >/dev/null || { log check failed "the component is not in each theme"; fail=1; }
+page="$(curl -sS --max-time 30 -A "Mozilla/5.0 (X11; Linux x86_64) Chrome/130.0" "$base/categories")"
+if grep -q "data-theme-id=\"$id\"" <<<"$page"; then
+  log check ok "the categories page loads component $id"
+else
+  log check failed "the categories page does not load component $id (an anonymous page may come from the cache for a minute)"
+  fail=1
+fi
+[ "$fail" = 0 ] && log done ok "installed and checked. Way back: remove the themes on the component page, or delete the component"
+exit "$fail"
