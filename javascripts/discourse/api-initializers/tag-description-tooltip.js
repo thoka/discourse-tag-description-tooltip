@@ -5,6 +5,13 @@ import { escapeExpression } from "discourse/lib/utilities";
 import { fetchTagDescription, plainDescription } from "../lib/tag-descriptions";
 
 const TAG_SELECTOR = ".discourse-tag";
+// Places where the tag is not the target of pointer events:
+// - a row of the tag chooser: select-kit sets `pointer-events: none` on the
+//   children of a row, so the row gets the events and the tag inside does not.
+// - a tag link in the sidebar: it has no `.discourse-tag` element, and its
+//   wrapper carries the tag name.
+const CHOOSER_ROW_SELECTOR = ".select-kit-row";
+const SIDEBAR_TAG_SELECTOR = ".sidebar-section-link-wrapper[data-tag-name]";
 const IDENTIFIER = "tag-description";
 
 // Wrap the core renderer and add the description as an escaped data
@@ -39,14 +46,39 @@ function close() {
   }
 }
 
+// The trigger is the element that gets the pointer and focus events and that
+// anchors the tooltip. Return null if the target is not inside a tag.
+export function findTrigger(target) {
+  if (!target?.closest) {
+    return null;
+  }
+  const tag = target.closest(TAG_SELECTOR);
+  if (tag) {
+    return tag;
+  }
+  const row = target.closest(CHOOSER_ROW_SELECTOR);
+  if (row?.querySelector(TAG_SELECTOR)) {
+    return row;
+  }
+  return target.closest(SIDEBAR_TAG_SELECTOR);
+}
+
+// The element of the trigger that carries the tag data attributes.
+function tagElement(trigger) {
+  return trigger.matches(TAG_SELECTOR)
+    ? trigger
+    : trigger.querySelector(TAG_SELECTOR) || trigger;
+}
+
 async function descriptionFor(trigger) {
-  const known = trigger.dataset.tagDescription || "";
+  const { tagName, tagDescription } = tagElement(trigger).dataset;
+  const known = tagDescription || "";
   const { themeSettings } = services;
   const wantsFetch = themeSettings.full_description_on_hover || !known;
   if (!wantsFetch || !themeSettings.enable_fallback_fetch) {
     return known;
   }
-  const fetched = await fetchTagDescription(trigger.dataset.tagName);
+  const fetched = await fetchTagDescription(tagName);
   return fetched || known;
 }
 
@@ -78,8 +110,8 @@ function onEnter(event) {
   if (services.site.mobileView || services.capabilities.touchFirst) {
     return;
   }
-  const trigger = event.target.closest?.(TAG_SELECTOR);
-  if (trigger?.dataset.tagName) {
+  const trigger = findTrigger(event.target);
+  if (trigger && tagElement(trigger).dataset.tagName) {
     open(trigger);
   }
 }
@@ -92,7 +124,7 @@ function onLeave(event) {
   if (next && currentTrigger.contains(next)) {
     return;
   }
-  if (event.target.closest?.(TAG_SELECTOR) === currentTrigger) {
+  if (findTrigger(event.target) === currentTrigger) {
     close();
   }
 }
