@@ -1,0 +1,6 @@
+enable_fallback_fetch:
+  type: bool
+  default: true
+full_description_on_hover:
+  type: bool
+  default: false

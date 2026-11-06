@@ -1,0 +1,6 @@
+en:
+  theme_metadata:
+    description: "Shows the description of a tag in a tooltip when you hover over or focus the tag."
+    settings:
+      enable_fallback_fetch: "Load the description of a tag from the server when the page does not have it (for example in the sidebar or the tag chooser). Each tag is loaded once per page load."
+      full_description_on_hover: "Always load the full description from the server. Without this setting, the topic list shows only the first 80 characters."

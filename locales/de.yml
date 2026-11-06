@@ -1,0 +1,6 @@
+de:
+  theme_metadata:
+    description: "Zeigt die Beschreibung eines Schlagworts als Tooltip, wenn man mit der Maus darüber fährt oder es fokussiert."
+    settings:
+      enable_fallback_fetch: "Die Beschreibung eines Schlagworts vom Server laden, wenn die Seite sie nicht enthält (zum Beispiel in der Seitenleiste oder in der Schlagwort-Auswahl). Jedes Schlagwort wird pro Seitenaufruf einmal geladen."
+      full_description_on_hover: "Immer die vollständige Beschreibung vom Server laden. Ohne diese Einstellung zeigt die Themenliste nur die ersten 80 Zeichen."

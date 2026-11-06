@@ -1,0 +1,8 @@
+{
+  "name": "Tag Description Tooltip",
+  "component": true,
+  "authors": "Thomas Kalka",
+  "about_url": "https://github.com/thoka/discourse-tag-description-tooltip",
+  "license_url": "https://github.com/thoka/discourse-tag-description-tooltip/blob/main/LICENSE",
+  "minimum_discourse_version": "2026.10.0"
+}
