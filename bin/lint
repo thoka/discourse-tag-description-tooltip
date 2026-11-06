@@ -28,3 +28,19 @@ else
   log prettier failed "Prettier found format problems. Fix them with: bin/lint --fix"
   exit 1
 fi
+log version running "check minimum_discourse_version of about.json against the core version"
+# Core disables a remote theme silently when its version is below the minimum, and it compares
+# with Gem::Version, where "2026.10.0-latest" is lower than "2026.10.0".
+if in_checkout ruby -rjson -e '
+  min = JSON.parse(File.read("about.json"))["minimum_discourse_version"] or exit 0
+  load "/workspace/discourse/lib/version.rb"
+  core = Discourse::VERSION::STRING
+  regexp = /\A\d+\.\d+\.\d+(\.beta\d+|-latest(\.\d+)?)?\z/
+  abort "#{min} does not match the version format of core" unless min.match?(regexp)
+  abort "core #{core} is below the minimum #{min}" unless Gem::Version.new(core) >= Gem::Version.new(min)
+'; then
+  log version ok "the dev core version meets minimum_discourse_version"
+else
+  log version failed "core would disable this component, see above"
+  exit 1
+fi
