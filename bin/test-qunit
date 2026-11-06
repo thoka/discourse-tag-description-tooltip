@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Run the QUnit tests of this theme component in a running Discourse dev container.
+# It imports this checkout into the test database as a theme (updates it on each run),
+# then runs core's bin/qunit against /theme-qunit with its own Rails server.
+# Needs: a running dev container with Postgres, Chromium, and a core frontend build.
+# Extra arguments go to bin/qunit (for example --filter "keyboard").
+set -euo pipefail
+. "$(dirname "$0")/_log.sh"
+
+find_container
+find_checkout
+
+if ! in_container pg_isready -q 2>/dev/null; then
+  log postgres failed "Postgres in $TDT_CONTAINER is down. Start it in the container: .devcontainer/scripts/start.rb"
+  exit 1
+fi
+if ! in_container test -f frontend/discourse/dist/manifest/manifest.json; then
+  log frontend failed "the core frontend build is missing. Build it in the container: pnpm build"
+  exit 1
+fi
+
+log import running "import $TDT_DIR into the test database"
+theme_id="$(in_container env RAILS_ENV=test bin/rails runner '
+  dir = ARGV[0]
+  name = JSON.parse(File.read(File.join(dir, "about.json")))["name"]
+  old = Theme.find_by(name: name)
+  theme = RemoteTheme.import_theme_from_directory(dir, theme_id: old&.id)
+  puts theme.id
+' "$TDT_DIR" | tail -n 1)"
+log import ok "theme id $theme_id"
+
+log qunit running "bin/qunit --standalone --qunit-path /theme-qunit --theme-id $theme_id $*"
+# Chromium finds no usable sandbox in the container, so it runs with --no-sandbox.
+# The frontend build exists, so the run reuses it.
+if in_container env DISCOURSE_DISABLE_BROWSER_SANDBOX=1 QUNIT_REUSE_BUILD=1 \
+  bin/qunit --standalone --qunit-path /theme-qunit --theme-id "$theme_id" "$@"; then
+  log qunit ok "all qunit tests pass"
+else
+  log qunit failed "qunit tests fail, see the output above"
+  exit 1
+fi

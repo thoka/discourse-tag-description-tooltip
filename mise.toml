@@ -1,0 +1,11 @@
+[tasks.test]
+description = "Lint and run the QUnit tests in a running Discourse dev container"
+depends = ["lint", "qunit"]
+
+[tasks.lint]
+description = "Lint the JavaScript with the ESLint and Prettier configs of core (in the dev container)"
+run = "bin/lint"
+
+[tasks.qunit]
+description = "Import this checkout as a theme into the test database and run its QUnit tests (in the dev container)"
+run = "bin/test-qunit"

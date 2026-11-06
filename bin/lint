@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Lint the JavaScript of this theme component with the ESLint and Prettier configs of core,
+# in a running Discourse dev container. Pass --fix to fix what the tools can fix.
+set -euo pipefail
+. "$(dirname "$0")/_log.sh"
+
+find_container
+find_checkout
+bin=/workspace/discourse/node_modules/.bin
+fix=()
+prettier_mode=--check
+if [ "${1:-}" = "--fix" ]; then
+  fix=(--fix)
+  prettier_mode=--write
+fi
+
+log eslint running "eslint with the config of core"
+if in_checkout "$bin/eslint" --config /workspace/discourse/eslint.config.mjs "${fix[@]}" javascripts test; then
+  log eslint ok "no ESLint problems"
+else
+  log eslint failed "ESLint found problems, see above"
+  exit 1
+fi
+log prettier running "prettier $prettier_mode with the config of core"
+if in_checkout "$bin/prettier" --config /workspace/discourse/.prettierrc.cjs "$prettier_mode" javascripts test; then
+  log prettier ok "the format is clean"
+else
+  log prettier failed "Prettier found format problems. Fix them with: bin/lint --fix"
+  exit 1
+fi
